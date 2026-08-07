@@ -1,6 +1,6 @@
 
 #[derive(Clone, Copy)]
-enum Cardinal {
+pub enum Cardinal {
     North,
     East,
     South,
@@ -8,9 +8,9 @@ enum Cardinal {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-struct Coordinate {
-    x: i32,
-    y: i32,
+pub struct Coordinate {
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Coordinate {
@@ -24,13 +24,6 @@ impl Coordinate {
     }
 }
 
-mod arena;
-mod wall;
-mod cycle;
-mod game;
-mod render;
-
-fn main() {
-    game::game();
-}
-
+pub mod arena;
+pub mod wall;
+pub mod cycle;

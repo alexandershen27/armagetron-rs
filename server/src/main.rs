@@ -1,12 +1,21 @@
 
 
 use std::io;
-use crate::{Cardinal, Coordinate};
-use crate::arena::Arena;
-use crate::cycle::{Cycle, Direction};
-use crate::render::vis;
+use std::time::{Duration, SystemTime};
+use std::thread::sleep;
 
-pub fn game() {
+use sim::{Cardinal, Coordinate};
+use sim::arena::Arena;
+use sim::cycle::{Cycle};
+
+pub fn main() {
+
+    // Get tickrate
+    println!("Input tickrate: ");
+    let mut tickrate = String::new();
+    io::stdin().read_line(&mut tickrate).expect("Fail");
+    let tickrate: u32 = tickrate.trim().parse().expect("Fail");
+    let ns_per_frame = Duration::from_secs(1).checked_div(tickrate).unwrap();
 
     // Build arena
     println!("Input arena bound: ");
@@ -53,25 +62,8 @@ pub fn game() {
 
     // Start simulation
     while my_arena.living_count() > 0 {
-        vis(&my_arena);
-
-        for i in 0..n_cycles {
-            let id: usize = i as usize;
-            let name: char = (id + 65) as u8 as char;
-
-            if !my_arena.cycles()[id].is_alive() { continue }
-
-            let mut dir = String::new();
-            println!("Turn for {}? (f/j)", name);
-            io::stdin().read_line(&mut dir).expect("Fail");
-            let dir: char = dir.trim().parse().expect("Fail");
-
-            match dir {
-                'f' => my_arena.queue_turn(id, Direction::Left),
-                'j' => my_arena.queue_turn(id, Direction::Right),
-                _ => continue
-            }
-        }
+        let now = SystemTime::now();
         my_arena.tick();
+        sleep(ns_per_frame - now.elapsed().unwrap());
     }
 }

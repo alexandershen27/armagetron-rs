@@ -21,7 +21,9 @@ impl Arena {
     pub fn max_y(&self) -> i32 { self.max_y }
     pub fn cycles(&self) -> &[Cycle] { &self.cycles }
 
-    pub fn living_count(&self) -> usize { self.cycles.iter().filter(|c| c.is_alive()).count() }
+    pub fn living_count(&self) -> usize { 
+        self.cycles.iter().filter(|c| c.is_alive()).count() 
+    }
 
     pub fn add_cycle(&mut self, cycle: Cycle) {
         self.cycles.push(cycle)

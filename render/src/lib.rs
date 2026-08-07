@@ -1,6 +1,6 @@
 
 use std::cmp;
-use crate::arena::Arena;
+use sim::arena::Arena;
 
 pub fn vis(arena: &Arena) {
     let xoff = arena.max_x();
