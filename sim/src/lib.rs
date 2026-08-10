@@ -24,6 +24,11 @@ impl Coordinate {
     }
 }
 
+// sim modules
 pub mod arena;
 pub mod wall;
 pub mod cycle;
+
+// game modules
+pub mod game;
+pub mod player;

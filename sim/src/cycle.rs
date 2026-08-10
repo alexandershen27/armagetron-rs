@@ -3,11 +3,16 @@ use std::collections::VecDeque;
 use crate::{Cardinal, Coordinate};
 use crate::wall::Wall;
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum Command { Direction(Direction) }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum Direction { Left, Right }
 
+pub type CycleId = usize;
+
 pub struct Cycle {
+    id: CycleId,
     alive: bool,
     position: Coordinate,
     facing: Cardinal,
@@ -18,23 +23,31 @@ pub struct Cycle {
 
 // Accessors and settors
 impl Cycle {
-    pub fn new(position: Coordinate, facing: Cardinal) -> Self {
+    pub fn new(id: CycleId, position: Coordinate, facing: Cardinal, speed: i32) -> Self {
         Cycle {
+            id,
             alive: true,
             position,
             facing,
-            speed: 1,
+            speed,
             walls: vec![Wall::new(position)],
             queued_turns: VecDeque::new(),
         }
     }
-
+    
     pub fn is_alive(&self) -> bool { self.alive }
     pub fn position(&self) -> Coordinate { self.position }
     pub fn walls(&self) -> &[Wall] { &self.walls }
 
+    pub fn get_id(&self) -> CycleId { self.id }
     pub fn kill(&mut self) { self.alive = false; }
-    pub fn queue_turn(&mut self, dir: Direction) { self.queued_turns.push_back(dir); }
+
+    // Action
+    pub fn act(&mut self, command: Command) {
+        match command {
+            Command::Direction(dir) => self.queued_turns.push_back(dir), 
+        }
+    }
 
     // Pre-collision actions
     pub fn advance(&mut self) {
