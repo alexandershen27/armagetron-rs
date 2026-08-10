@@ -1,5 +1,5 @@
-use crate::{Coordinate, Cardinal};
-use crate::arena::{Arena, SimInput};
+use crate::{Scalar, Coordinate, Cardinal};
+use crate::grid::{Grid, SimInput};
 use crate::cycle::{CycleId, Command};
 use crate::player::{Player, PlayerUid};
 
@@ -9,20 +9,20 @@ pub struct PlayerInput {
 }
 
 pub struct Game {
-    arena: Arena,
+    grid: Grid,
     players: Vec<Player>,
 }
 
 impl Game {
-    pub fn new(arena_size: i32) -> Self {
+    pub fn new(grid_size: Scalar) -> Self {
         Game {
-            arena: Arena::new(arena_size, arena_size),
+            grid: Grid::new(grid_size, grid_size),
             players: vec![],
         }
     }
 
     pub fn is_active(&self) -> bool {
-        self.arena.living_count() >= 1
+        self.grid.living_count() >= 1
     }
 
     pub fn join(&mut self, player: Player) {
@@ -30,7 +30,7 @@ impl Game {
     }
 
     pub fn spawn_cycle_for(&mut self, player_uid: PlayerUid, position: Coordinate, facing: Cardinal) {
-        let cycle_id = self.arena.spawn_cycle(position, facing);
+        let cycle_id = self.grid.spawn_cycle(position, facing);
         self.get_player_mut(player_uid).cycle_id = Some(cycle_id);
     }
 
@@ -42,7 +42,7 @@ impl Game {
                 command: player_input.command,
             })
         }
-        self.arena.tick(&sim_input)
+        self.grid.tick(&sim_input)
     }
 }
 

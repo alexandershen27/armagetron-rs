@@ -1,6 +1,6 @@
 
 use std::collections::VecDeque;
-use crate::{Cardinal, Coordinate};
+use crate::{Scalar, Cardinal, Coordinate};
 use crate::wall::Wall;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -16,14 +16,14 @@ pub struct Cycle {
     alive: bool,
     position: Coordinate,
     facing: Cardinal,
-    speed: i32,
+    speed: Scalar,
     walls: Vec<Wall>,
     queued_turns: VecDeque<Direction>
 }
 
 // Accessors and settors
 impl Cycle {
-    pub fn new(id: CycleId, position: Coordinate, facing: Cardinal, speed: i32) -> Self {
+    pub fn new(id: CycleId, position: Coordinate, facing: Cardinal, speed: Scalar) -> Self {
         Cycle {
             id,
             alive: true,
@@ -35,35 +35,34 @@ impl Cycle {
         }
     }
     
+    pub fn get_id(&self) -> CycleId { self.id }
     pub fn is_alive(&self) -> bool { self.alive }
     pub fn position(&self) -> Coordinate { self.position }
+    pub fn facing(&self) -> Cardinal { self.facing }
+    pub fn speed(&self) -> Scalar { self.speed }
     pub fn walls(&self) -> &[Wall] { &self.walls }
 
-    pub fn get_id(&self) -> CycleId { self.id }
     pub fn kill(&mut self) { self.alive = false; }
+    pub fn set_position(&mut self, pos: Coordinate) { 
+        self.position = pos;
+        self.update_wall(); 
+    }
 
-    // Action
+    // Pre-collision action
     pub fn act(&mut self, command: Command) {
         match command {
-            Command::Direction(dir) => self.queued_turns.push_back(dir), 
+            Command::Direction(dir) => { 
+                self.queued_turns.push_back(dir);
+                self.try_turn();
+            },
         }
     }
 
-    // Pre-collision actions
-    pub fn advance(&mut self) {
-        if !self.is_alive() { return }
-
-        self.try_turn();
-        self.position.step(self.facing, self.speed);
-    }
-
-    // Post-collision actions
+    // Post-collision update
     pub fn update(&mut self) {
-        if !self.is_alive() { return }
-
+        self.position.step(self.facing, self.speed);
         self.update_wall();
     }
-
 }
 
 impl Cycle {

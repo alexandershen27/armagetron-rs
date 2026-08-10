@@ -4,6 +4,7 @@ use std::io;
 use std::time::{Duration, Instant};
 use std::thread::sleep;
 
+use sim::Scalar;
 use sim::game::{Game, PlayerInput};
 use sim::player::Player;
 
@@ -16,12 +17,12 @@ pub fn main() {
     let tickrate: u32 = tickrate.trim().parse().expect("Fail");
     let ns_per_frame = Duration::from_secs(1).checked_div(tickrate).unwrap();
 
-    // Build game/arena
-    println!("Input arena bound: ");
-    let mut arena_size = String::new();
-    io::stdin().read_line(&mut arena_size).expect("Fail");
-    let arena_size: i32 = arena_size.trim().parse().expect("Fail");
-    let mut my_game = Game::new(arena_size);
+    // Build game/grid
+    println!("Input grid bound: ");
+    let mut grid_size = String::new();
+    io::stdin().read_line(&mut grid_size).expect("Fail");
+    let grid_size: Scalar = grid_size.trim().parse().expect("Fail");
+    let mut my_game = Game::new(grid_size);
 
     // Join players
     println!("Input number of players (<=26): ");
