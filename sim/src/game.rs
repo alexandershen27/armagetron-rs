@@ -3,6 +3,8 @@ use crate::grid::{Grid, SimInput};
 use crate::cycle::{CycleId, Command};
 use crate::player::{Player, PlayerUid};
 
+use rand::{random_bool, random_range};
+
 pub struct PlayerInput {
     pub player_uid: PlayerUid,
     pub command: Command
@@ -34,6 +36,25 @@ impl Game {
         self.get_player_mut(player_uid).cycle_id = Some(cycle_id);
     }
 
+    pub fn spawn_cycle_random_for(&mut self, player_uid: PlayerUid) {
+        
+        let grid = self.get_grid();
+        let radius = grid.max_x().min(grid.max_y()) * 0.7;
+        let x = random_range(-radius..radius);
+        let y = (radius.powi(2) - x.powi(2)).sqrt() * if random_bool(0.5) { 1.0 } else { -1.0 };
+
+        let position = Coordinate { x, y };
+        let facing = if x.abs() > y.abs() {
+            if x > 0.0 { Cardinal::West } else { Cardinal::East }
+        } else {
+            if y > 0.0 { Cardinal::South } else { Cardinal::North }
+        };
+
+        let cycle_id = self.grid.spawn_cycle(position, facing);
+        self.get_player_mut(player_uid).cycle_id = Some(cycle_id);
+
+    }
+
     pub fn tick(&mut self, inputs: &[PlayerInput]) {
         let mut sim_input = vec![];
         for player_input in inputs {
@@ -43,6 +64,10 @@ impl Game {
             })
         }
         self.grid.tick(&sim_input)
+    }
+
+    pub fn get_grid(&self) -> &Grid {
+        &self.grid
     }
 }
 
