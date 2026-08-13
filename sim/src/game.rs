@@ -1,6 +1,6 @@
 use crate::{Scalar, Coordinate, Cardinal};
 use crate::grid::{Grid, SimInput};
-use crate::cycle::{CycleId, Command};
+use crate::cycle::Command;
 use crate::player::{Player, PlayerUid};
 
 use rand::{random_bool, random_range};
@@ -15,12 +15,25 @@ pub struct Game {
     players: Vec<Player>,
 }
 
+// Initializer, public getters and setters
 impl Game {
     pub fn new(grid_size: Scalar) -> Self {
         Game {
             grid: Grid::new(grid_size, grid_size),
             players: vec![],
         }
+    }
+
+    fn active_uids(&self) -> Vec<PlayerUid> {
+        self.players
+            .iter()
+            .filter(|p| p.is_active())
+            .map(|p| p.get_uid())
+            .collect()
+    }
+
+    pub fn active_player_count(&self) -> usize {
+        self.active_uids().len()
     }
 
     pub fn is_active(&self) -> bool {
@@ -30,13 +43,24 @@ impl Game {
     pub fn join(&mut self, player: Player) {
         self.players.push(player);
     }
+}
 
-    pub fn spawn_cycle_for(&mut self, player_uid: PlayerUid, position: Coordinate, facing: Cardinal) {
-        let cycle_id = self.grid.spawn_cycle(position, facing);
-        self.get_player_mut(player_uid).cycle_id = Some(cycle_id);
+// Cycle spawning
+impl Game {
+    
+    pub fn spawn_active_players(&mut self) {
+        let active_uids = self.active_uids();
+        for uid in active_uids {
+            self.spawn_cycle_random_for(uid);
+        }
     }
 
-    pub fn spawn_cycle_random_for(&mut self, player_uid: PlayerUid) {
+    fn spawn_cycle_for(&mut self, player_uid: PlayerUid, position: Coordinate, facing: Cardinal) {
+        let cycle_id = self.grid.spawn_cycle(position, facing);
+        self.get_player_mut(player_uid).set_cycle_id(cycle_id);
+    }
+
+    fn spawn_cycle_random_for(&mut self, player_uid: PlayerUid) {
         
         let grid = self.get_grid();
         let radius = grid.max_x().min(grid.max_y()) * 0.7;
@@ -51,7 +75,7 @@ impl Game {
         };
 
         let cycle_id = self.grid.spawn_cycle(position, facing);
-        self.get_player_mut(player_uid).cycle_id = Some(cycle_id);
+        self.get_player_mut(player_uid).set_cycle_id(cycle_id);
 
     }
 
@@ -59,7 +83,8 @@ impl Game {
         let mut sim_input = vec![];
         for player_input in inputs {
             sim_input.push(SimInput {
-                cycle_id: self.get_cycle_id(player_input.player_uid).expect("Player should have cycle_id"),
+                cycle_id: self.get_player(player_input.player_uid).get_cycle_id()
+                    .expect("Player should have cycle_id"),
                 command: player_input.command,
             })
         }
@@ -74,15 +99,13 @@ impl Game {
 impl Game {
 
     fn get_player(&self, player_uid: PlayerUid) -> &Player {
-        self.players.iter().find(|x| x.uid == player_uid).expect("Player should be in game")
+        self.players.iter().find(|x| x.get_uid() == player_uid)
+            .expect("Player should be in game")
     }
 
     fn get_player_mut(&mut self, player_uid: PlayerUid) -> &mut Player {
-        self.players.iter_mut().find(|x| x.uid == player_uid).expect("Player should be in game")
-    }
-
-    fn get_cycle_id(&self, player_uid: PlayerUid) -> Option<CycleId> {
-        self.get_player(player_uid).cycle_id
+        self.players.iter_mut().find(|x| x.get_uid() == player_uid)
+            .expect("Player should be in game")
     }
 
 }
