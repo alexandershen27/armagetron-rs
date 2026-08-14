@@ -1,15 +1,9 @@
 
 use std::collections::VecDeque;
 use crate::{Scalar, Cardinal, Coordinate};
-use crate::wall::Wall;
-
-#[derive(PartialEq, Clone, Copy)]
-pub enum Command { Direction(Direction) }
-
-#[derive(PartialEq, Clone, Copy)]
-pub enum Direction { Left, Right }
-
-pub type CycleId = usize;
+use crate::game::{Direction, Command};
+use super::wall::Wall;
+use super::CycleId;
 
 pub struct Cycle {
     id: CycleId,

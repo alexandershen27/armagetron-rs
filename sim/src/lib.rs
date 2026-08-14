@@ -89,12 +89,5 @@ impl Line {
     }
 }
 
-// sim modules
-pub mod grid;
-pub mod wall;
-pub mod cycle;
-pub mod sensor;
-
 // game modules
 pub mod game;
-pub mod player;

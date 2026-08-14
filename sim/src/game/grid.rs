@@ -1,7 +1,14 @@
 
+mod cycle;
+mod wall;
+mod sensor;
+
 use crate::{Scalar, Coordinate, Cardinal};
-use crate::cycle::{Cycle, CycleId, Command};
-use crate::sensor::{Sensor, SensorHit};
+use super::Command;
+use self::cycle::Cycle;
+use self::sensor::{Sensor, SensorHit};
+
+pub type CycleId = usize;
 
 pub struct SimInput {
     pub cycle_id: CycleId,
@@ -9,31 +16,42 @@ pub struct SimInput {
 }
 
 pub struct Grid {
-    max_x: Scalar,
-    max_y: Scalar,
+    config: GridConfig,
     cycles: Vec<Cycle>,
     next_id: CycleId,
 }
 
-impl Grid {
-    pub fn new(max_x: Scalar, max_y: Scalar) -> Self {
-        Grid {
+// Grid initialization, and config
+struct GridConfig {
+    max_x: Scalar,
+    max_y: Scalar,
+}
+
+impl GridConfig {
+    fn new(max_x: Scalar, max_y: Scalar) -> Self {
+        GridConfig {
             max_x,
             max_y,
+            // other things: turn speed, rubber, etc...
+        }
+    }
+}
+
+impl Grid {
+    pub fn new(max_x: Scalar, max_y: Scalar) -> Self {
+        let config = GridConfig::new(max_x, max_y);
+        Grid {
+            config,
             cycles: vec![],
             next_id: 0,
         }
     }
 
-    pub fn max_x(&self) -> Scalar { self.max_x }
-    pub fn max_y(&self) -> Scalar { self.max_y }
+    pub fn max_x(&self) -> Scalar { self.config.max_x }
+    pub fn max_y(&self) -> Scalar { self.config.max_y }
+
+
     pub fn cycles(&self) -> &[Cycle] { &self.cycles }
-
-    pub fn allocate_id(&mut self) -> CycleId { 
-        self.next_id += 1;
-        self.next_id - 1
-    }
-
     pub fn living_count(&self) -> usize { 
         self.cycles.iter().filter(|c| c.is_alive()).count() 
     }
@@ -78,6 +96,13 @@ impl Grid {
                 cycle.update();
             }
         }
-        
+    }
+}
+
+// Private utilities
+impl Grid {
+    fn allocate_id(&mut self) -> CycleId { 
+        self.next_id += 1;
+        self.next_id - 1
     }
 }

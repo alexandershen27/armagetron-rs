@@ -1,7 +1,7 @@
 
 use crate::{Scalar, Coordinate, Cardinal, Line};
-use crate::grid::Grid;
-use crate::cycle::{Cycle, CycleId};
+use super::{Grid, CycleId};
+use super::cycle::{Cycle};
 
 pub struct Sensor<'a> {
     grid: &'a Grid,
@@ -26,21 +26,6 @@ impl<'a> Sensor<'a> {
             facing: cycle.facing(),
             speed: cycle.speed(),
         }
-    }
-
-    fn ray_max(&self) -> Line {
-        let mut x = self.position.x;
-        let mut y = self.position.y;
-
-        match self.facing {
-            Cardinal::North => y = self.grid.max_y(),
-            Cardinal::South => y = -self.grid.max_y(),
-            Cardinal::East => x = self.grid.max_x(),
-            Cardinal::West => x = -self.grid.max_x(),
-        };
-
-        let end = Coordinate { x, y }; 
-        Line { pos1: self.position, pos2: end }
     }
 
     pub fn ray_hit(&self) -> SensorHit {
@@ -69,5 +54,18 @@ impl<'a> Sensor<'a> {
         }
     }
 
-    
+    fn ray_max(&self) -> Line {
+        let mut x = self.position.x;
+        let mut y = self.position.y;
+
+        match self.facing {
+            Cardinal::North => y = self.grid.max_y(),
+            Cardinal::South => y = -self.grid.max_y(),
+            Cardinal::East => x = self.grid.max_x(),
+            Cardinal::West => x = -self.grid.max_x(),
+        };
+
+        let end = Coordinate { x, y }; 
+        Line { pos1: self.position, pos2: end }
+    }
 }

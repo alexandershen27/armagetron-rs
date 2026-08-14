@@ -1,7 +1,10 @@
+
+mod grid;
+mod player;
+
 use crate::{Scalar, Coordinate, Cardinal};
-use crate::grid::{Grid, SimInput};
-use crate::cycle::Command;
-use crate::player::{Player, PlayerUid};
+use self::player::{Player, PlayerUid};
+use self::grid::{Grid, SimInput};
 
 use rand::{random_bool, random_range};
 
@@ -9,6 +12,12 @@ pub struct PlayerInput {
     pub player_uid: PlayerUid,
     pub command: Command
 }
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum Command { Direction(Direction) }
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum Direction { Left, Right }
 
 pub struct Game {
     grid: Grid,
@@ -96,6 +105,7 @@ impl Game {
     }
 }
 
+// Private utilities
 impl Game {
 
     fn get_player(&self, player_uid: PlayerUid) -> &Player {

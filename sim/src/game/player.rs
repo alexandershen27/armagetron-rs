@@ -1,4 +1,4 @@
-use crate::cycle::CycleId;
+use crate::game::grid::CycleId;
 
 pub type PlayerUid = u8;
 
