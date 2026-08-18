@@ -1,21 +1,23 @@
+// use serde::{Serialize, Deserialize};
+// use std::net::TcpStream;
 
-pub enum Message {
-    Snapshot,
-    Input
-}
+// pub enum Message {
+//     Snapshot,
+//     Input
+// }
 
-pub struct Snapshot {
+// #[derive(Serialize, Deserialize)]
+// pub struct Snapshot {
+// }
 
-}
+// pub struct Input {
 
-pub struct Input {
+// }
 
-}
-
-// fn send(stream, &Message) {
+// fn send(stream: TcpStream, message: &Message) {
 //     serialize + frame + write
-// }           
+// }
 
-// fn recv(stream) -> Message {
+// fn recv(stream: TcpStream) -> Message {
 //     read frame + deserialize
 // }

@@ -1,23 +1,29 @@
-
 mod grid;
 mod player;
 
-use crate::{Scalar, Coordinate, Cardinal};
-use self::player::{Player, PlayerUid};
-use self::grid::{Grid, SimInput};
+use self::grid::Grid;
+use self::player::Player;
+use crate::{Cardinal, Coordinate, Scalar};
+
+pub use self::player::PlayerUid;
 
 use rand::{random_bool, random_range};
 
-pub struct PlayerInput {
-    pub player_uid: PlayerUid,
-    pub command: Command
+pub struct Input {
+    pub uid: PlayerUid,
+    pub command: Command,
 }
 
 #[derive(PartialEq, Clone, Copy)]
-pub enum Command { Direction(Direction) }
+pub enum Command {
+    Direction(Direction),
+}
 
 #[derive(PartialEq, Clone, Copy)]
-pub enum Direction { Left, Right }
+pub enum Direction {
+    Left,
+    Right,
+}
 
 pub struct Game {
     grid: Grid,
@@ -37,7 +43,7 @@ impl Game {
         self.players
             .iter()
             .filter(|p| p.is_active())
-            .map(|p| p.get_uid())
+            .map(|p| p.uid())
             .collect()
     }
 
@@ -49,14 +55,13 @@ impl Game {
         self.grid.living_count() >= 1
     }
 
-    pub fn join(&mut self, player: Player) {
-        self.players.push(player);
+    pub fn join(&mut self, uid: PlayerUid) {
+        self.players.push(Player::new(uid));
     }
 }
 
 // Cycle spawning
 impl Game {
-    
     pub fn spawn_active_players(&mut self) {
         let active_uids = self.active_uids();
         for uid in active_uids {
@@ -64,58 +69,40 @@ impl Game {
         }
     }
 
+    #[allow(unused)]
     fn spawn_cycle_for(&mut self, player_uid: PlayerUid, position: Coordinate, facing: Cardinal) {
-        let cycle_id = self.grid.spawn_cycle(position, facing);
-        self.get_player_mut(player_uid).set_cycle_id(cycle_id);
+        self.grid.spawn_cycle(player_uid, position, facing);
     }
 
     fn spawn_cycle_random_for(&mut self, player_uid: PlayerUid) {
-        
-        let grid = self.get_grid();
+        let grid = self.grid();
         let radius = grid.max_x().min(grid.max_y()) * 0.7;
         let x = random_range(-radius..radius);
         let y = (radius.powi(2) - x.powi(2)).sqrt() * if random_bool(0.5) { 1.0 } else { -1.0 };
 
         let position = Coordinate { x, y };
         let facing = if x.abs() > y.abs() {
-            if x > 0.0 { Cardinal::West } else { Cardinal::East }
+            if x > 0.0 {
+                Cardinal::West
+            } else {
+                Cardinal::East
+            }
         } else {
-            if y > 0.0 { Cardinal::South } else { Cardinal::North }
+            if y > 0.0 {
+                Cardinal::South
+            } else {
+                Cardinal::North
+            }
         };
 
-        let cycle_id = self.grid.spawn_cycle(position, facing);
-        self.get_player_mut(player_uid).set_cycle_id(cycle_id);
-
+        self.grid.spawn_cycle(player_uid, position, facing);
     }
 
-    pub fn tick(&mut self, inputs: &[PlayerInput]) {
-        let mut sim_input = vec![];
-        for player_input in inputs {
-            sim_input.push(SimInput {
-                cycle_id: self.get_player(player_input.player_uid).get_cycle_id()
-                    .expect("Player should have cycle_id"),
-                command: player_input.command,
-            })
-        }
-        self.grid.tick(&sim_input)
+    pub fn tick(&mut self, inputs: &[Input]) {
+        self.grid.tick(inputs)
     }
 
-    pub fn get_grid(&self) -> &Grid {
+    pub fn grid(&self) -> &Grid {
         &self.grid
     }
-}
-
-// Private utilities
-impl Game {
-
-    fn get_player(&self, player_uid: PlayerUid) -> &Player {
-        self.players.iter().find(|x| x.get_uid() == player_uid)
-            .expect("Player should be in game")
-    }
-
-    fn get_player_mut(&mut self, player_uid: PlayerUid) -> &mut Player {
-        self.players.iter_mut().find(|x| x.get_uid() == player_uid)
-            .expect("Player should be in game")
-    }
-
 }

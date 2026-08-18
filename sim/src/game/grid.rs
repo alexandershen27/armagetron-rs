@@ -1,24 +1,17 @@
-
 mod cycle;
-mod wall;
 mod sensor;
+mod wall;
 
-use crate::{Scalar, Coordinate, Cardinal};
-use super::Command;
+use std::collections::HashMap;
+
 use self::cycle::Cycle;
-use self::sensor::{Sensor, SensorHit};
-
-pub type CycleId = usize;
-
-pub struct SimInput {
-    pub cycle_id: CycleId,
-    pub command: Command
-}
+use self::sensor::Sensor;
+use super::{Input, PlayerUid};
+use crate::{Cardinal, Coordinate, Scalar};
 
 pub struct Grid {
     config: GridConfig,
-    cycles: Vec<Cycle>,
-    next_id: CycleId,
+    cycles: HashMap<PlayerUid, Cycle>,
 }
 
 // Grid initialization, and config
@@ -42,67 +35,67 @@ impl Grid {
         let config = GridConfig::new(max_x, max_y);
         Grid {
             config,
-            cycles: vec![],
-            next_id: 0,
+            cycles: HashMap::new(),
         }
     }
 
-    pub fn max_x(&self) -> Scalar { self.config.max_x }
-    pub fn max_y(&self) -> Scalar { self.config.max_y }
-
-
-    pub fn cycles(&self) -> &[Cycle] { &self.cycles }
-    pub fn living_count(&self) -> usize { 
-        self.cycles.iter().filter(|c| c.is_alive()).count() 
+    pub fn max_x(&self) -> Scalar {
+        self.config.max_x
+    }
+    pub fn max_y(&self) -> Scalar {
+        self.config.max_y
     }
 
-    pub fn spawn_cycle(&mut self, position: Coordinate, facing: Cardinal) -> CycleId {
-        let new_id = self.allocate_id();
-        let cycle = Cycle::new(
-            new_id,
-            position,
-            facing,
-            1.0,
-        );
-        self.cycles.push(cycle);
-        new_id
+    pub fn cycles(&self) -> Vec<(&PlayerUid, &Cycle)> {
+        self.cycles.iter().collect()
     }
 
-    pub fn tick(&mut self, inputs: &[SimInput]) {
+    pub fn living_count(&self) -> usize {
+        self.cycles.values().filter(|c| c.is_alive()).count()
+    }
 
+    pub fn spawn_cycle(&mut self, player: PlayerUid, position: Coordinate, facing: Cardinal) {
+        let cycle = Cycle::new(position, facing, 1.0);
+        self.cycles.insert(player, cycle);
+    }
+
+    pub fn tick(&mut self, inputs: &[Input]) {
         // Phase 1: Does inputs
         for input in inputs {
-            self.cycles[input.cycle_id].act(input.command);
+            self.cycles
+                .get_mut(&input.uid)
+                .expect("Player should have cycle")
+                .act(input.command);
         }
 
         // Phase 2: Check collisions in next tick
-        let mut dead_cycles: Vec<(usize, SensorHit)> = Vec::new();
-        for (i, cycle) in self.cycles.iter().enumerate() {
-            if !cycle.is_alive() { continue; }
-            let sensor = Sensor::new(&self, cycle).ray_hit();
+        let mut dead_cycles = Vec::new();
+        for (uid, cycle) in self.cycles.iter() {
+            if !cycle.is_alive() {
+                continue;
+            }
+            let sensor = Sensor::new(self, *uid, cycle).ray_hit();
             if sensor.ticks_to_collision <= 1 {
-                dead_cycles.push((i, sensor));
+                dead_cycles.push((*uid, sensor));
             }
         }
 
         // Phase 3: Kill and advance cycles
-        for (index, sensor) in dead_cycles {
-            self.cycles[index].set_position(sensor.position);
-            self.cycles[index].kill();
+        for (uid, sensor) in dead_cycles {
+            self.cycles
+                .get_mut(&uid)
+                .expect("Player should have cycle")
+                .set_position(sensor.position);
+            self.cycles
+                .get_mut(&uid)
+                .expect("Player should have cycle")
+                .kill();
         }
 
-        for cycle in &mut self.cycles {
+        for cycle in self.cycles.values_mut() {
             if cycle.is_alive() {
                 cycle.update();
             }
         }
-    }
-}
-
-// Private utilities
-impl Grid {
-    fn allocate_id(&mut self) -> CycleId { 
-        self.next_id += 1;
-        self.next_id - 1
     }
 }

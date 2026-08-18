@@ -1,25 +1,21 @@
-
-use std::collections::VecDeque;
-use crate::{Scalar, Cardinal, Coordinate};
-use crate::game::{Direction, Command};
 use super::wall::Wall;
-use super::CycleId;
+use crate::game::{Command, Direction};
+use crate::{Cardinal, Coordinate, Scalar};
+use std::collections::VecDeque;
 
 pub struct Cycle {
-    id: CycleId,
     alive: bool,
     position: Coordinate,
     facing: Cardinal,
     speed: Scalar,
     walls: Vec<Wall>,
-    queued_turns: VecDeque<Direction>
+    queued_turns: VecDeque<Direction>,
 }
 
 // Accessors and settors
 impl Cycle {
-    pub fn new(id: CycleId, position: Coordinate, facing: Cardinal, speed: Scalar) -> Self {
+    pub fn new(position: Coordinate, facing: Cardinal, speed: Scalar) -> Self {
         Cycle {
-            id,
             alive: true,
             position,
             facing,
@@ -28,27 +24,38 @@ impl Cycle {
             queued_turns: VecDeque::new(),
         }
     }
-    
-    pub fn get_id(&self) -> CycleId { self.id }
-    pub fn is_alive(&self) -> bool { self.alive }
-    pub fn position(&self) -> Coordinate { self.position }
-    pub fn facing(&self) -> Cardinal { self.facing }
-    pub fn speed(&self) -> Scalar { self.speed }
-    pub fn walls(&self) -> &[Wall] { &self.walls }
 
-    pub fn kill(&mut self) { self.alive = false; }
-    pub fn set_position(&mut self, pos: Coordinate) { 
+    pub fn is_alive(&self) -> bool {
+        self.alive
+    }
+    pub fn position(&self) -> Coordinate {
+        self.position
+    }
+    pub fn facing(&self) -> Cardinal {
+        self.facing
+    }
+    pub fn speed(&self) -> Scalar {
+        self.speed
+    }
+    pub fn walls(&self) -> &[Wall] {
+        &self.walls
+    }
+
+    pub fn kill(&mut self) {
+        self.alive = false;
+    }
+    pub fn set_position(&mut self, pos: Coordinate) {
         self.position = pos;
-        self.update_wall(); 
+        self.update_wall();
     }
 
     // Pre-collision action
     pub fn act(&mut self, command: Command) {
         match command {
-            Command::Direction(dir) => { 
+            Command::Direction(dir) => {
                 self.queued_turns.push_back(dir);
                 self.try_turn();
-            },
+            }
         }
     }
 
@@ -60,19 +67,17 @@ impl Cycle {
 }
 
 impl Cycle {
-
     fn try_turn(&mut self) {
         if let Some(dir) = self.queued_turns.pop_front() {
-
             self.facing = match (&self.facing, dir) {
-                (Cardinal::North, Direction::Left)  => Cardinal::West,
+                (Cardinal::North, Direction::Left) => Cardinal::West,
                 (Cardinal::North, Direction::Right) => Cardinal::East,
-                (Cardinal::East,  Direction::Left)  => Cardinal::North,
-                (Cardinal::East,  Direction::Right) => Cardinal::South,
-                (Cardinal::South, Direction::Left)  => Cardinal::East,
+                (Cardinal::East, Direction::Left) => Cardinal::North,
+                (Cardinal::East, Direction::Right) => Cardinal::South,
+                (Cardinal::South, Direction::Left) => Cardinal::East,
                 (Cardinal::South, Direction::Right) => Cardinal::West,
-                (Cardinal::West,  Direction::Left)  => Cardinal::South,
-                (Cardinal::West,  Direction::Right) => Cardinal::North,
+                (Cardinal::West, Direction::Left) => Cardinal::South,
+                (Cardinal::West, Direction::Right) => Cardinal::North,
             };
 
             self.walls.push(Wall::new(self.position));
@@ -84,5 +89,4 @@ impl Cycle {
             current_wall.update_end_position(self.position);
         }
     }
-
 }

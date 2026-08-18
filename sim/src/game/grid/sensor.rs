@@ -1,11 +1,10 @@
-
-use crate::{Scalar, Coordinate, Cardinal, Line};
-use super::{Grid, CycleId};
-use super::cycle::{Cycle};
+use super::cycle::Cycle;
+use super::{Grid, PlayerUid};
+use crate::{Cardinal, Coordinate, Line, Scalar};
 
 pub struct Sensor<'a> {
     grid: &'a Grid,
-    cycle_id: CycleId,
+    player_uid: PlayerUid,
     position: Coordinate,
     facing: Cardinal,
     speed: Scalar,
@@ -13,15 +12,16 @@ pub struct Sensor<'a> {
 
 pub struct SensorHit {
     pub ticks_to_collision: u32,
-    pub target: CycleId,
+    #[allow(unused)]
+    pub target: PlayerUid,
     pub position: Coordinate,
 }
 
 impl<'a> Sensor<'a> {
-    pub fn new(grid: &'a Grid, cycle: &Cycle) -> Self {
+    pub fn new(grid: &'a Grid, uid: PlayerUid, cycle: &Cycle) -> Self {
         Sensor {
             grid,
-            cycle_id: cycle.get_id(),
+            player_uid: uid,
             position: cycle.position(),
             facing: cycle.facing(),
             speed: cycle.speed(),
@@ -30,11 +30,13 @@ impl<'a> Sensor<'a> {
 
     pub fn ray_hit(&self) -> SensorHit {
         let mut ray = self.ray_max();
-        let mut target = self.cycle_id;
+        let mut target = self.player_uid;
 
-        for cycle in self.grid.cycles() {
+        for (uid, cycle) in self.grid.cycles() {
             for wall in cycle.walls() {
-                if cycle.get_id() == self.cycle_id && ray.pos1 == wall.end_position() { continue }
+                if *uid == self.player_uid && ray.pos1 == wall.end_position() {
+                    continue;
+                }
                 if ray.hit(wall.as_line()) {
                     match self.facing {
                         Cardinal::North => ray.pos2.y = wall.start_position().y,
@@ -42,7 +44,7 @@ impl<'a> Sensor<'a> {
                         Cardinal::East => ray.pos2.x = wall.start_position().x,
                         Cardinal::West => ray.pos2.x = wall.start_position().x,
                     }
-                    target = cycle.get_id()
+                    target = *uid
                 }
             }
         }
@@ -50,7 +52,7 @@ impl<'a> Sensor<'a> {
         SensorHit {
             ticks_to_collision: (ray.len() / self.speed).ceil() as u32,
             target,
-            position: ray.pos2
+            position: ray.pos2,
         }
     }
 
@@ -65,7 +67,10 @@ impl<'a> Sensor<'a> {
             Cardinal::West => x = -self.grid.max_x(),
         };
 
-        let end = Coordinate { x, y }; 
-        Line { pos1: self.position, pos2: end }
+        let end = Coordinate { x, y };
+        Line {
+            pos1: self.position,
+            pos2: end,
+        }
     }
 }

@@ -1,4 +1,3 @@
-
 use std::io;
 use std::io::prelude::*;
 use std::net::TcpStream;
@@ -7,15 +6,16 @@ use std::thread::sleep;
 use std::time::Duration;
 
 pub fn main() {
+    println!("Enter UID (one byte char): ");
+
     let mut buf = String::new();
     io::stdin().read_line(&mut buf).unwrap();
     let uid = buf.as_bytes()[0];
 
-    let mut stream = TcpStream::connect("127.0.0.1:8000")
-        .expect("Failed connect");
+    let mut stream = TcpStream::connect("127.0.0.1:8000").expect("Failed connect");
 
     // Send UID byte
-    stream.write(&[uid]).unwrap();
+    stream.write_all(&[uid]).unwrap();
 
     // Connected confirmation
     let mut buf = [0; 9];
