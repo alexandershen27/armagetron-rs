@@ -74,7 +74,7 @@ impl TerminalRenderer {
             let x = cycle_x + xoff;
             let y = h - cycle_y - yoff;
             if cycle.is_alive() {
-                let icon = (id + 65) as u8 as char;
+                let icon = *id as u8 as char;
                 grid_map[y as usize][x as usize] = format!("{}{}", icon, icon);
             } else {
                 grid_map[y as usize][x as usize] = "XX".to_string()

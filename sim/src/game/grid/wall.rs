@@ -1,5 +1,8 @@
 use crate::game::{Coordinate, Line};
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct Wall {
     start_position: Coordinate,
     end_position: Coordinate,

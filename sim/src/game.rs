@@ -1,16 +1,16 @@
 mod grid;
 mod player;
 
+use self::grid::Grid;
+pub use self::player::PlayerUid;
+use self::player::{Player, PlayerStatus};
 use crate::game::grid::GridConfig;
 
-use self::grid::Grid;
-use self::player::Player;
-
-pub use self::player::PlayerUid;
-
 use rand::{random_bool, random_range};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Cardinal {
     North,
     East,
@@ -21,7 +21,7 @@ pub enum Cardinal {
 pub type Scalar = f32;
 pub type Tick = i32;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Coordinate {
     pub x: Scalar,
     pub y: Scalar,
@@ -114,15 +114,21 @@ pub enum Command {
     Direction(Direction),
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Direction {
     Left,
     Right,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct GameSnapshot {
+    game: Game,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Game {
     grid: Grid,
-    players: Vec<Player>,
+    players: HashMap<PlayerUid, Player>,
 }
 
 // Initializer, public getters and setters
@@ -136,20 +142,20 @@ impl Game {
 
         Game {
             grid: Grid::new(config),
-            players: vec![],
+            players: HashMap::new(),
         }
     }
 
-    fn active_uids(&self) -> Vec<PlayerUid> {
+    fn active_players(&self) -> Vec<PlayerUid> {
         self.players
-            .iter()
-            .filter(|p| p.is_active())
-            .map(|p| p.uid())
+            .values()
+            .filter(|p| p.status == PlayerStatus::Active)
+            .map(|p| p.uid)
             .collect()
     }
 
     pub fn active_player_count(&self) -> usize {
-        self.active_uids().len()
+        self.active_players().len()
     }
 
     pub fn is_active(&self) -> bool {
@@ -157,15 +163,22 @@ impl Game {
     }
 
     pub fn join(&mut self, uid: PlayerUid) {
-        self.players.push(Player::new(uid));
+        self.players.insert(uid, Player::new(uid));
+    }
+
+    pub fn leave(&mut self, uid: PlayerUid) {
+        self.players
+            .get_mut(&uid)
+            .expect("Player should be in game")
+            .status = PlayerStatus::Inactive
     }
 }
 
 // Cycle spawning
 impl Game {
     pub fn spawn_active_players(&mut self) {
-        let active_uids = self.active_uids();
-        for uid in active_uids {
+        let active_players = self.active_players();
+        for uid in active_players {
             self.spawn_cycle_random_for(uid);
         }
     }

@@ -1,9 +1,11 @@
-use std::collections::VecDeque;
-
 use super::GridConfig;
 use super::wall::Wall;
 use crate::game::{Cardinal, Command, Coordinate, Direction, Scalar, Tick};
 
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+
+#[derive(Serialize, Deserialize)]
 pub struct Cycle {
     config: GridConfig,
     alive: bool,

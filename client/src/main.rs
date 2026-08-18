@@ -1,27 +1,34 @@
+use render::TerminalRenderer;
+use sim::game::Game;
+
 use std::io;
-use std::io::prelude::*;
+use std::io::{BufReader, prelude::*};
 use std::net::TcpStream;
-
-use std::thread::sleep;
-use std::time::Duration;
-
 pub fn main() {
     println!("Enter UID (one byte char): ");
 
     let mut buf = String::new();
-    io::stdin().read_line(&mut buf).unwrap();
+    io::stdin().read_line(&mut buf).expect("Invalid input.");
     let uid = buf.as_bytes()[0];
 
-    let mut stream = TcpStream::connect("127.0.0.1:8000").expect("Failed connect");
+    let mut stream =
+        TcpStream::connect("127.0.0.1:8000").expect("Failed connect, is the server running?");
 
     // Send UID byte
     stream.write_all(&[uid]).unwrap();
 
-    // Connected confirmation
-    let mut buf = [0; 9];
-    stream.read_exact(&mut buf).expect("Failed receive.");
-    let msg = String::from_utf8_lossy(&buf);
-    println!("{}", msg);
+    // Render game
+    let renderer = TerminalRenderer::new();
+    let mut reader = BufReader::new(&stream);
+    loop {
+        let mut line = String::new();
+        let res = reader.read_line(&mut line).expect("Read failed");
+        if res == 0 {
+            println!("Server disconnected.");
+            return;
+        }
 
-    sleep(Duration::from_secs(120));
+        let snap: Game = serde_json::from_str(&line).expect("Failed deserialize");
+        renderer.draw_frame(&snap);
+    }
 }

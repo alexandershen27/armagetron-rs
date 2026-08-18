@@ -2,19 +2,21 @@ mod cycle;
 mod sensor;
 mod wall;
 
-use std::collections::HashMap;
-
 use self::cycle::Cycle;
 use self::sensor::Sensor;
 use super::{Cardinal, Coordinate, Input, PlayerUid, Scalar, Tick};
 
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Serialize, Deserialize)]
 pub struct Grid {
     config: GridConfig,
     cycles: HashMap<PlayerUid, Cycle>,
 }
 
 // Grid initialization, and config
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct GridConfig {
     pub max_x: Scalar,
     pub max_y: Scalar,
@@ -72,14 +74,9 @@ impl Grid {
 
         // Phase 3: Kill and advance cycles
         for (uid, sensor) in dead_cycles {
-            self.cycles
-                .get_mut(&uid)
-                .expect("Player should have cycle")
-                .set_position(sensor.position);
-            self.cycles
-                .get_mut(&uid)
-                .expect("Player should have cycle")
-                .kill();
+            let cycle = self.cycles.get_mut(&uid).expect("Player should have cycle");
+            cycle.set_position(sensor.position);
+            cycle.kill();
         }
 
         for cycle in self.cycles.values_mut() {
