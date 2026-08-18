@@ -1,6 +1,6 @@
 use super::cycle::Cycle;
 use super::{Grid, PlayerUid};
-use crate::{Cardinal, Coordinate, Line, Scalar};
+use crate::game::{Cardinal, Coordinate, Line, Scalar, Tick};
 
 pub struct Sensor<'a> {
     grid: &'a Grid,
@@ -11,7 +11,7 @@ pub struct Sensor<'a> {
 }
 
 pub struct SensorHit {
-    pub ticks_to_collision: u32,
+    pub ticks_to_collision: Tick,
     #[allow(unused)]
     pub target: PlayerUid,
     pub position: Coordinate,
@@ -50,7 +50,7 @@ impl<'a> Sensor<'a> {
         }
 
         SensorHit {
-            ticks_to_collision: (ray.len() / self.speed).ceil() as u32,
+            ticks_to_collision: (ray.len() / self.speed).ceil() as Tick,
             target,
             position: ray.pos2,
         }

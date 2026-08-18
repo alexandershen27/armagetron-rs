@@ -6,8 +6,7 @@ use std::collections::HashMap;
 
 use self::cycle::Cycle;
 use self::sensor::Sensor;
-use super::{Input, PlayerUid};
-use crate::{Cardinal, Coordinate, Scalar};
+use super::{Cardinal, Coordinate, Input, PlayerUid, Scalar, Tick};
 
 pub struct Grid {
     config: GridConfig,
@@ -15,24 +14,15 @@ pub struct Grid {
 }
 
 // Grid initialization, and config
-struct GridConfig {
-    max_x: Scalar,
-    max_y: Scalar,
-}
-
-impl GridConfig {
-    fn new(max_x: Scalar, max_y: Scalar) -> Self {
-        GridConfig {
-            max_x,
-            max_y,
-            // other things: turn speed, rubber, etc...
-        }
-    }
+#[derive(Clone, Copy)]
+pub struct GridConfig {
+    pub max_x: Scalar,
+    pub max_y: Scalar,
+    pub turn_cooldown: Tick,
 }
 
 impl Grid {
-    pub fn new(max_x: Scalar, max_y: Scalar) -> Self {
-        let config = GridConfig::new(max_x, max_y);
+    pub fn new(config: GridConfig) -> Self {
         Grid {
             config,
             cycles: HashMap::new(),
@@ -55,7 +45,7 @@ impl Grid {
     }
 
     pub fn spawn_cycle(&mut self, player: PlayerUid, position: Coordinate, facing: Cardinal) {
-        let cycle = Cycle::new(position, facing, 1.0);
+        let cycle = Cycle::new(self.config, position, facing, 1.0);
         self.cycles.insert(player, cycle);
     }
 

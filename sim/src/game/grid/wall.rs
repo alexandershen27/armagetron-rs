@@ -1,4 +1,4 @@
-use crate::{Coordinate, Line};
+use crate::game::{Coordinate, Line};
 
 pub struct Wall {
     start_position: Coordinate,
