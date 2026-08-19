@@ -9,3 +9,4 @@ net = { path = "../net" }
 render = { path = "../render" }
 serde = "1.0.229"
 serde_json = "1.0"
+crossterm = "0.28"

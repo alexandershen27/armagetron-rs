@@ -1,6 +1,7 @@
-use sim::game::{Game, Input, PlayerUid};
+use sim::game::{Game, GameConfig, GridConfig, Input, PlayerUid};
 
 use std::collections::HashMap;
+use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
@@ -11,10 +12,10 @@ const ADDRESS: &str = "127.0.0.1:8000";
 const TICKRATE: u32 = 10;
 
 pub fn main() {
+    // Get connections
     println!("Launching server...");
-
     let mut connections: HashMap<PlayerUid, TcpStream> = HashMap::new();
-    let (tx, rx) = mpsc::channel();
+    let (new_connection_tx, new_connection_rx) = mpsc::channel();
     thread::spawn(move || {
         let listener = TcpListener::bind(ADDRESS).expect("Failed to bind to address");
 
@@ -24,17 +25,29 @@ pub fn main() {
                 Err(_) => continue,
             };
 
-            tx.send(stream).expect("Failed to send stream down channel");
+            new_connection_tx
+                .send(stream)
+                .expect("Failed to send stream down channel");
         }
     });
 
+    // Start game loop
     println!("Building game...");
-    let mut my_game = Game::new(30.0);
+    let config = GameConfig {
+        grid_config: GridConfig {
+            max_x: 25.0,
+            max_y: 25.0,
+            turn_cooldown: 2,
+        },
+    };
+
+    let mut my_game = Game::new(config);
 
     loop {
+        // State 1: Lobby
         println!("Waiting for players...");
         thread::sleep(Duration::from_secs(5));
-        while let Ok(mut stream) = rx.try_recv() {
+        while let Ok(mut stream) = new_connection_rx.try_recv() {
             let mut uid = [0; 1];
             match stream.read_exact(&mut uid) {
                 Ok(_) => {
@@ -52,18 +65,54 @@ pub fn main() {
             continue;
         }
 
-        // Simulate game
+        // State 2: Simulate game
         println!("Starting game with {} players...", n_players);
         my_game.spawn_active_players();
-        let inputs: Vec<Input> = vec![];
 
         let tickrate = TICKRATE;
         let ns_per_frame = Duration::from_secs(1)
             .checked_div(tickrate)
             .expect("Nonzero tickrate");
 
+        let (reader_tx, reader_rx) = mpsc::channel();
+        for (uid, stream) in connections.iter() {
+            let mut reader = BufReader::new(
+                stream
+                    .try_clone()
+                    .expect("Failed to initialize reader stream"),
+            );
+            let uid = *uid;
+            let reader_tx_clone = reader_tx.clone();
+            thread::spawn(move || {
+                loop {
+                    let mut line = String::new();
+                    let res = reader.read_line(&mut line).expect("Read failed");
+                    if res == 0 {
+                        println!("Client {uid} disconnected.");
+                        return;
+                    }
+
+                    let input: Input =
+                        serde_json::from_str(&line).expect("Failed deserialize input.");
+                    reader_tx_clone
+                        .send(input)
+                        .expect("Failed to send input down channel");
+                }
+            });
+        }
+
+        while reader_rx.try_recv().is_ok() {
+            // drain inputs before next round
+            continue;
+        }
+
         while my_game.is_active() {
             let now = Instant::now();
+
+            let mut inputs: Vec<Input> = vec![];
+            while let Ok(input) = reader_rx.try_recv() {
+                inputs.push(input)
+            }
             my_game.tick(&inputs);
 
             let mut dropped: Vec<PlayerUid> = vec![];

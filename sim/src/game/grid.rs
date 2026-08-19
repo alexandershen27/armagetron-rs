@@ -54,10 +54,9 @@ impl Grid {
     pub fn tick(&mut self, inputs: &[Input]) {
         // Phase 1: Does inputs
         for input in inputs {
-            self.cycles
-                .get_mut(&input.uid)
-                .expect("Player should have cycle")
-                .act(input.command);
+            if let Some(cycle) = self.cycles.get_mut(&input.uid) {
+                cycle.act(input.command);
+            }
         }
 
         // Phase 2: Check collisions in next tick

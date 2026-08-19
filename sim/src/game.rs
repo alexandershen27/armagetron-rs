@@ -4,7 +4,7 @@ mod player;
 use self::grid::Grid;
 pub use self::player::PlayerUid;
 use self::player::{Player, PlayerStatus};
-use crate::game::grid::GridConfig;
+pub use crate::game::grid::GridConfig;
 
 use rand::{random_bool, random_range};
 use serde::{Deserialize, Serialize};
@@ -104,20 +104,25 @@ impl Line {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Input {
     pub uid: PlayerUid,
     pub command: Command,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum Command {
     Direction(Direction),
 }
 
-#[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum Direction {
     Left,
     Right,
+}
+
+pub struct GameConfig {
+    pub grid_config: GridConfig,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,12 +138,8 @@ pub struct Game {
 
 // Initializer, public getters and setters
 impl Game {
-    pub fn new(grid_size: Scalar) -> Self {
-        let config = GridConfig {
-            max_x: grid_size,
-            max_y: grid_size,
-            turn_cooldown: 5,
-        };
+    pub fn new(game_config: GameConfig) -> Self {
+        let config = game_config.grid_config;
 
         Game {
             grid: Grid::new(config),

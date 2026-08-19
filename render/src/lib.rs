@@ -12,7 +12,7 @@ impl TerminalRenderer {
     pub fn draw_frame(&self, game: &Game) {
         let state = TerminalRenderer::build_grid_map(game);
         for row in state {
-            println!("{}", row.join(""));
+            print!("{}\r\n", row.join(""));
         }
     }
 
