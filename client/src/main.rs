@@ -31,24 +31,7 @@ pub fn main() {
     thread::spawn(move || {
         enable_raw_mode().expect("Failed to enable terminal raw mode");
         loop {
-            let command = loop {
-                break match read_term().expect("Failed read event") {
-                    Event::Key(key) => match key.code {
-                        KeyCode::Left => Command::Direction(Direction::Left),
-                        KeyCode::Right => Command::Direction(Direction::Right),
-                        _ => {
-                            println!("Invalid key press");
-                            continue;
-                        }
-                    },
-                    _ => {
-                        println!("Invald event");
-                        continue;
-                    }
-                };
-            };
-
-            println!("Caught event!");
+            let command = fetch_event();
             let input = Input {
                 uid: uid as u32,
                 command,
@@ -69,14 +52,33 @@ pub fn main() {
     let mut reader = BufReader::new(&stream);
 
     loop {
-        let mut line = String::new();
-        let res = reader.read_line(&mut line).expect("Read failed");
-        if res == 0 {
-            println!("Server disconnected.");
-            return;
+        match net::recv::<Game>(&mut reader).expect("Read failed") {
+            Some(snap) => renderer.draw_frame(&snap),
+            None => {
+                println!("Server disconnected.");
+                return;
+            }
         }
-
-        let snap: Game = serde_json::from_str(&line).expect("Failed deserialize");
-        renderer.draw_frame(&snap);
     }
+}
+
+fn fetch_event() -> Command {
+    let command = loop {
+        break match read_term().expect("Failed read event") {
+            Event::Key(key) => match key.code {
+                KeyCode::Left => Command::Direction(Direction::Left),
+                KeyCode::Right => Command::Direction(Direction::Right),
+                _ => {
+                    println!("Invalid key press");
+                    continue;
+                }
+            },
+            _ => {
+                println!("Invald event");
+                continue;
+            }
+        };
+    };
+
+    command
 }

@@ -125,26 +125,34 @@ pub struct GameConfig {
     pub grid_config: GridConfig,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct GameSnapshot {
-    game: Game,
+#[derive(PartialEq, Serialize, Deserialize)]
+enum GameState {
+    Inactive,
+    Active,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Game {
     grid: Grid,
+    state: GameState,
     players: HashMap<PlayerUid, Player>,
 }
 
 // Initializer, public getters and setters
 impl Game {
     pub fn new(game_config: GameConfig) -> Self {
-        let config = game_config.grid_config;
+        let grid_config = game_config.grid_config;
 
         Game {
-            grid: Grid::new(config),
+            grid: Grid::new(grid_config),
+            state: GameState::Inactive,
             players: HashMap::new(),
         }
+    }
+
+    pub fn start(&mut self) {
+        self.spawn_active_players();
+        self.state = GameState::Active;
     }
 
     fn active_players(&self) -> Vec<PlayerUid> {
@@ -160,7 +168,7 @@ impl Game {
     }
 
     pub fn is_active(&self) -> bool {
-        self.grid.living_count() >= 1
+        self.state == GameState::Active
     }
 
     pub fn join(&mut self, uid: PlayerUid) {
@@ -177,7 +185,7 @@ impl Game {
 
 // Cycle spawning
 impl Game {
-    pub fn spawn_active_players(&mut self) {
+    fn spawn_active_players(&mut self) {
         let active_players = self.active_players();
         for uid in active_players {
             self.spawn_cycle_random_for(uid);
@@ -210,11 +218,14 @@ impl Game {
             }
         };
 
-        self.grid.spawn_cycle(player_uid, position, facing);
+        self.spawn_cycle_for(player_uid, position, facing);
     }
 
     pub fn tick(&mut self, inputs: &[Input]) {
-        self.grid.tick(inputs)
+        self.grid.tick(inputs);
+        if self.grid.living_count() < 1 {
+            self.state = GameState::Inactive;
+        }
     }
 
     pub fn grid(&self) -> &Grid {
