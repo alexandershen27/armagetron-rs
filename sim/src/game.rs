@@ -21,7 +21,7 @@ pub enum Cardinal {
 pub type Scalar = f32;
 pub type Tick = i32;
 
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub struct Coordinate {
     pub x: Scalar,
     pub y: Scalar,

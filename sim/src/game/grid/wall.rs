@@ -2,7 +2,7 @@ use crate::game::{Coordinate, Line};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Wall {
     start_position: Coordinate,
     end_position: Coordinate,

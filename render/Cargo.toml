@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 sim = { path = "../sim" }
+wgpu = "30.0.1"
+bytemuck = { version = "1.25.2", features = ["derive"] }

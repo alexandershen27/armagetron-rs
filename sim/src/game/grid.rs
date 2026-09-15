@@ -31,6 +31,10 @@ impl Grid {
         }
     }
 
+    pub fn size(&self) -> Scalar {
+        self.config.max_x.max(self.config.max_y)
+    }
+
     pub fn max_x(&self) -> Scalar {
         self.config.max_x
     }
