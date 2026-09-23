@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use render::Vertex;
 use render::wall_pipeline;
-use sim::game::{Game, Scalar};
-use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
+use sim::game::Game;
+use winit::window::Window;
 
 const MAX_WALLS: u64 = 128;
 
@@ -117,17 +117,11 @@ impl State {
         }
     }
 
-    pub fn handle_key(&self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
-        match (code, is_pressed) {
-            (KeyCode::Escape, true) => event_loop.exit(),
-            _ => {}
-        }
-    }
-    pub fn update(&mut self, game: &Game) {
+    pub fn update(&mut self, game: Game) {
         let mut vertices: Vec<Vertex> = vec![];
         let mut indices: Vec<u32> = vec![];
 
-        for (i, (uid, wall)) in game
+        for (i, (_uid, wall)) in game
             .grid()
             .cycles()
             .into_iter()
@@ -143,7 +137,7 @@ impl State {
             let ey = wall.end_position().y;
 
             // Push to vertices
-            let color = [0.5, 0.0, 0.0];
+            let color = [1.0, 0.0, 0.0];
 
             // A (top start)
             vertices.push(Vertex {
@@ -170,7 +164,7 @@ impl State {
             });
 
             let i = i as u32 * 4;
-            indices.extend(vec![i, i + 1, i + 2, i + 1, i + 2, i + 3])
+            indices.extend(vec![i, i + 1, i + 2, i, i + 2, i + 3])
         }
 
         self.queue
@@ -183,8 +177,6 @@ impl State {
     }
 
     pub fn render(&mut self) -> anyhow::Result<()> {
-        self.window.request_redraw();
-
         if !self.is_surface_configured {
             return Ok(());
         }
@@ -237,7 +229,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1)
         }
 
@@ -245,5 +237,9 @@ impl State {
         self.queue.present(output);
 
         Ok(())
+    }
+
+    pub fn request_redraw(&mut self) {
+        self.window.request_redraw();
     }
 }

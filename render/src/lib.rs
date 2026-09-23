@@ -1,5 +1,4 @@
 mod pipeline;
-mod terminal;
 mod vertex;
 
 pub use pipeline::wall_pipeline;
