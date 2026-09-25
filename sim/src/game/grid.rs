@@ -46,6 +46,10 @@ impl Grid {
         self.cycles.iter().collect()
     }
 
+    pub fn get_cycle_by_id(&self, uid: &PlayerUid) -> Option<&Cycle> {
+        self.cycles.get(uid)
+    }
+
     pub fn living_count(&self) -> usize {
         self.cycles.values().filter(|c| c.is_alive()).count()
     }

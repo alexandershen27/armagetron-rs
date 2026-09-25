@@ -1,27 +1,34 @@
-use std::sync::Arc;
+use render::{Camera, CameraUniform, Vertex, wall_pipeline};
+use sim::game::{Cardinal, Game, PlayerUid};
 
-use render::Vertex;
-use render::wall_pipeline;
-use sim::game::Game;
+use wgpu::util::DeviceExt;
 use winit::window::Window;
+
+use std::sync::Arc;
 
 const MAX_WALLS: u64 = 128;
 
 pub struct State {
+    uid: PlayerUid,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     is_surface_configured: bool,
-    render_pipeline: wgpu::RenderPipeline,
+    camera: Camera,
+    camera_uniform: CameraUniform,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
+    render_pipelines: [wgpu::RenderPipeline; 2],
     window: Arc<Window>,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    mesh_index_buffer: wgpu::Buffer,
+    line_index_buffer: wgpu::Buffer,
     num_indices: u32,
 }
 
 impl State {
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(uid: PlayerUid, window: Arc<Window>) -> anyhow::Result<Self> {
         // Initialize instance, device, and queue
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -76,7 +83,53 @@ impl State {
             color_space: wgpu::SurfaceColorSpace::Auto,
         };
 
-        let render_pipeline = wall_pipeline(&device, config.format);
+        let camera = Camera::new(
+            (0.0, 60.0, 60.0).into(),
+            (0.0, 0.0, 0.0).into(),
+            glam::Vec3::Z,
+            config.width as f32 / config.height as f32,
+            45.0_f32.to_radians(),
+            0.1,
+            100.0,
+        );
+
+        let mut camera_uniform = CameraUniform::new();
+        camera_uniform.update_view_proj(&camera);
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
+
+        let render_pipelines: [RenderPipelines; 2] = [
+            mesh_pipeline(&device, config.format, &camera_bind_group_layout),
+            line_pipeline(&device, config.format, &camera_bind_group_layout)
+        ];
 
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Vertex Buffer"),
@@ -85,9 +138,16 @@ impl State {
             mapped_at_creation: false,
         });
 
-        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let mesh_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Index Buffer"),
             size: MAX_WALLS * 6 * std::mem::size_of::<u32>() as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let line_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Index Buffer"),
+            size: MAX_WALLS * 2 * std::mem::size_of::<u32>() as u64,
             usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -95,15 +155,21 @@ impl State {
         let num_indices = 0;
 
         Ok(Self {
+            uid,
             surface,
             device,
             queue,
             config,
             is_surface_configured: false,
-            render_pipeline,
+            camera,
+            camera_uniform,
+            camera_buffer,
+            camera_bind_group,
+            render_pipelines,
             window,
             vertex_buffer,
-            index_buffer,
+            mesh_index_buffer,
+            line_index_buffer,
             num_indices,
         })
     }
@@ -118,9 +184,33 @@ impl State {
     }
 
     pub fn update(&mut self, game: Game) {
+        // Camera
+        let DISTANCE = 60.0;
+        let HEIGHT = 60.0;
+        if let Some(cycle) = game.grid().get_cycle_by_id(&self.uid) {
+            let cycle_pos = glam::Vec3::new(cycle.position().x, cycle.position().y, 0.0);
+            let dir = match cycle.facing() {
+                Cardinal::North => glam::Vec3::new(0.0, 1.0, 0.0),
+                Cardinal::South => glam::Vec3::new(0.0, -1.0, 0.0),
+                Cardinal::East => glam::Vec3::new(1.0, 0.0, 0.0),
+                Cardinal::West => glam::Vec3::new(-1.0, 0.0, 0.0),
+            };
+
+            let eye = cycle_pos - dir * DISTANCE + glam::Vec3::Z * HEIGHT;
+            let center = cycle_pos;
+            self.camera.eye(eye);
+            self.camera.center(center);
+            self.camera_uniform.update_view_proj(&self.camera);
+            self.queue.write_buffer(
+                &self.camera_buffer,
+                0,
+                bytemuck::cast_slice(&[self.camera_uniform]),
+            );
+        };
+
+        // Draw walls
         let mut vertices: Vec<Vertex> = vec![];
         let mut indices: Vec<u32> = vec![];
-
         for (i, (_uid, wall)) in game
             .grid()
             .cycles()
@@ -171,8 +261,11 @@ impl State {
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
 
         self.queue
-            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices));
+            .write_buffer(&self.mesh_index_buffer, 0, bytemuck::cast_slice(&indices));
 
+        self.queue
+            .write_buffer(&self.line_index_buffer, 0, bytemuck::cast_slice(&indices));
+        q
         self.num_indices = indices.len() as u32;
     }
 
@@ -227,10 +320,14 @@ impl State {
                 multiview_mask: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_pipeline(&self.render_pipelines[0]);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_index_buffer(self.mesh_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1)
+
+            render_pass.set_pipeline(&self.render_pipelines[1]);
+            render_pass.set_index_buffer()
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

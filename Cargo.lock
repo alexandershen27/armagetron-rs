@@ -321,6 +321,7 @@ dependencies = [
  "bytemuck",
  "crossterm",
  "env_logger",
+ "glam",
  "log",
  "net",
  "pollster",
@@ -683,6 +684,12 @@ dependencies = [
  "log",
  "xml-rs",
 ]
+
+[[package]]
+name = "glam"
+version = "0.33.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35accb17301a4874ea893c685ca86bc1e25f92499382adc17eec9a91f7803cfb"
 
 [[package]]
 name = "glow"
@@ -1700,6 +1707,7 @@ name = "render"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "glam",
  "sim",
  "wgpu",
 ]
