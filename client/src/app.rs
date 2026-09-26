@@ -6,6 +6,7 @@ use std::io::{BufReader, prelude::*, stdin};
 use std::net::TcpStream;
 use std::sync::{Arc, mpsc};
 use std::thread;
+use std::time::Instant;
 
 use winit::{
     application::ApplicationHandler,
@@ -20,6 +21,7 @@ pub struct App {
     state: Option<State>,
     reader: mpsc::Receiver<Game>,
     writer: TcpStream,
+    last_frame: Instant,
 }
 
 impl App {
@@ -29,10 +31,15 @@ impl App {
             state: None,
             reader,
             writer,
+            last_frame: Instant::now(),
         }
     }
 
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
+        let now = Instant::now();
+        let dt = (now - self.last_frame).as_secs_f32();
+        self.last_frame = now;
+
         let state = match &mut self.state {
             Some(canvas) => canvas,
             None => return,
@@ -42,7 +49,7 @@ impl App {
             state.update(latest);
         }
 
-        match state.render() {
+        match state.render(dt) {
             Ok(_) => {}
             Err(e) => {
                 log::error!("{e}");

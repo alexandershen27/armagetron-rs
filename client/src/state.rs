@@ -1,4 +1,4 @@
-use render::{Camera, CameraUniform, Vertex, wall_pipeline};
+use render::{Camera, CameraUniform, Vertex, line_pipeline, mesh_pipeline};
 use sim::game::{Cardinal, Game, PlayerUid};
 
 use wgpu::util::DeviceExt;
@@ -19,12 +19,16 @@ pub struct State {
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    cycle_pos: glam::Vec3,
+    cycle_dir: glam::Vec3,
+    camera_dir: glam::Vec3,
     render_pipelines: [wgpu::RenderPipeline; 2],
     window: Arc<Window>,
     vertex_buffer: wgpu::Buffer,
     mesh_index_buffer: wgpu::Buffer,
     line_index_buffer: wgpu::Buffer,
-    num_indices: u32,
+    num_mesh_indices: u32,
+    num_line_indices: u32,
 }
 
 impl State {
@@ -84,13 +88,13 @@ impl State {
         };
 
         let camera = Camera::new(
-            (0.0, 60.0, 60.0).into(),
+            (0.0, 0.0, 0.0).into(),
             (0.0, 0.0, 0.0).into(),
             glam::Vec3::Z,
             config.width as f32 / config.height as f32,
             45.0_f32.to_radians(),
             0.1,
-            100.0,
+            200.0,
         );
 
         let mut camera_uniform = CameraUniform::new();
@@ -126,9 +130,13 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-        let render_pipelines: [RenderPipelines; 2] = [
+        let cycle_pos = (0.0, 0.0, 0.0).into();
+        let cycle_dir = glam::Vec3::Y;
+        let camera_dir = glam::Vec3::Y;
+
+        let render_pipelines: [wgpu::RenderPipeline; 2] = [
             mesh_pipeline(&device, config.format, &camera_bind_group_layout),
-            line_pipeline(&device, config.format, &camera_bind_group_layout)
+            line_pipeline(&device, config.format, &camera_bind_group_layout),
         ];
 
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -152,7 +160,8 @@ impl State {
             mapped_at_creation: false,
         });
 
-        let num_indices = 0;
+        let num_mesh_indices = 0;
+        let num_line_indices = 0;
 
         Ok(Self {
             uid,
@@ -165,12 +174,16 @@ impl State {
             camera_uniform,
             camera_buffer,
             camera_bind_group,
+            cycle_pos,
+            cycle_dir,
+            camera_dir,
             render_pipelines,
             window,
             vertex_buffer,
             mesh_index_buffer,
             line_index_buffer,
-            num_indices,
+            num_mesh_indices,
+            num_line_indices,
         })
     }
 
@@ -184,33 +197,73 @@ impl State {
     }
 
     pub fn update(&mut self, game: Game) {
-        // Camera
-        let DISTANCE = 60.0;
-        let HEIGHT = 60.0;
         if let Some(cycle) = game.grid().get_cycle_by_id(&self.uid) {
-            let cycle_pos = glam::Vec3::new(cycle.position().x, cycle.position().y, 0.0);
-            let dir = match cycle.facing() {
+            self.cycle_pos = glam::Vec3::new(cycle.position().x, cycle.position().y, 0.0);
+            self.cycle_dir = match cycle.facing() {
                 Cardinal::North => glam::Vec3::new(0.0, 1.0, 0.0),
                 Cardinal::South => glam::Vec3::new(0.0, -1.0, 0.0),
                 Cardinal::East => glam::Vec3::new(1.0, 0.0, 0.0),
                 Cardinal::West => glam::Vec3::new(-1.0, 0.0, 0.0),
             };
-
-            let eye = cycle_pos - dir * DISTANCE + glam::Vec3::Z * HEIGHT;
-            let center = cycle_pos;
-            self.camera.eye(eye);
-            self.camera.center(center);
-            self.camera_uniform.update_view_proj(&self.camera);
-            self.queue.write_buffer(
-                &self.camera_buffer,
-                0,
-                bytemuck::cast_slice(&[self.camera_uniform]),
-            );
         };
 
         // Draw walls
+        let z = 3.0; // MAGIC NUMBER
+
         let mut vertices: Vec<Vertex> = vec![];
-        let mut indices: Vec<u32> = vec![];
+        let mut mesh_indices: Vec<u32> = vec![];
+        let mut line_indices: Vec<u32> = vec![];
+
+        // Arena wals
+        let bx = game.grid().max_x();
+        let by = game.grid().max_y();
+
+        let bcolor = [0.0, 0.0, 0.0];
+        vertices.push(Vertex {
+            position: [-bx, -by, z],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [bx, -by, z],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [bx, by, z],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [-bx, by, z],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [-bx, -by, 0.0],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [bx, -by, 0.0],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [bx, by, 0.0],
+            color: bcolor,
+        });
+        vertices.push(Vertex {
+            position: [-bx, by, 0.0],
+            color: bcolor,
+        });
+
+        mesh_indices.extend(vec![
+            0, 1, 4, // -x, -y
+            1, 4, 5, //
+            1, 2, 5, // x, -y
+            2, 5, 6, //
+            2, 3, 6, // x, y
+            3, 6, 7, //
+            3, 0, 7, // -x, y
+            0, 7, 4, //
+        ]);
+
+        // Cycle walls
         for (i, (_uid, wall)) in game
             .grid()
             .cycles()
@@ -218,8 +271,6 @@ impl State {
             .flat_map(|(uid, cycle)| cycle.walls().iter().map(move |w| (uid, w)))
             .enumerate()
         {
-            let z = 3.0;
-
             let sx = wall.start_position().x;
             let sy = wall.start_position().y;
 
@@ -253,27 +304,51 @@ impl State {
                 color: color,
             });
 
-            let i = i as u32 * 4;
-            indices.extend(vec![i, i + 1, i + 2, i, i + 2, i + 3])
+            let i = (i as u32 * 4) + 8;
+            line_indices.extend(vec![i, i + 1]);
+            mesh_indices.extend(vec![i, i + 1, i + 2, i, i + 2, i + 3]);
         }
 
         self.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
 
-        self.queue
-            .write_buffer(&self.mesh_index_buffer, 0, bytemuck::cast_slice(&indices));
+        self.queue.write_buffer(
+            &self.mesh_index_buffer,
+            0,
+            bytemuck::cast_slice(&mesh_indices),
+        );
 
-        self.queue
-            .write_buffer(&self.line_index_buffer, 0, bytemuck::cast_slice(&indices));
-        q
-        self.num_indices = indices.len() as u32;
+        self.queue.write_buffer(
+            &self.line_index_buffer,
+            0,
+            bytemuck::cast_slice(&line_indices),
+        );
+
+        self.num_mesh_indices = mesh_indices.len() as u32;
+        self.num_line_indices = line_indices.len() as u32;
     }
 
-    pub fn render(&mut self) -> anyhow::Result<()> {
+    pub fn render(&mut self, dt: f32) -> anyhow::Result<()> {
         if !self.is_surface_configured {
             return Ok(());
         }
 
+        // Camera position smoothing
+        let distance = 60.0;
+        let height = 60.0;
+        let rate = 40.0;
+        self.camera_dir = (self.camera_dir + self.cycle_dir * (rate * dt)).normalize();
+        self.camera.eye = self.cycle_pos - self.camera_dir * distance + glam::Vec3::Z * height;
+        self.camera.center = self.cycle_pos;
+
+        self.camera_uniform.update_view_proj(&self.camera);
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.camera_uniform]),
+        );
+
+        // Draw
         let output = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
             wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
@@ -320,14 +395,18 @@ impl State {
                 multiview_mask: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipelines[0]);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.mesh_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1)
+
+            render_pass.set_pipeline(&self.render_pipelines[0]);
+            render_pass
+                .set_index_buffer(self.mesh_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..self.num_mesh_indices, 0, 0..1);
 
             render_pass.set_pipeline(&self.render_pipelines[1]);
-            render_pass.set_index_buffer()
+            render_pass
+                .set_index_buffer(self.line_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..self.num_line_indices, 0, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

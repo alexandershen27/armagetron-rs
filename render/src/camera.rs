@@ -4,8 +4,8 @@ use glam::{
 };
 
 pub struct Camera {
-    eye: Vec3,
-    center: Vec3,
+    pub eye: Vec3,
+    pub center: Vec3,
     up: Vec3,
     aspect_ratio: f32,
     vertical_fov: f32,
@@ -32,14 +32,6 @@ impl Camera {
             near,
             far,
         }
-    }
-
-    pub fn eye(&mut self, eye: Vec3) {
-        self.eye = eye
-    }
-
-    pub fn center(&mut self, center: Vec3) {
-        self.center = center
     }
 
     pub fn build_view_projection_matrix(&self) -> Mat4 {

@@ -9,8 +9,8 @@ const CONFIG: ServerConfig = ServerConfig {
     tickrate: 20,
     game_config: GameConfig {
         grid_config: GridConfig {
-            max_x: 25.0,
-            max_y: 25.0,
+            max_x: 50.0,
+            max_y: 50.0,
             turn_cooldown: 2,
         },
     },
